@@ -32,6 +32,7 @@ type Config struct {
 	ServiceName  string
 	Exchange     string
 	ExchangeType string
+	Durable      bool
 	QueueName    string
 	RoutingKey   string
 	CTag         string
@@ -76,7 +77,7 @@ func NewProducer(config Config) (*Producer, error) {
 	if err = p.channel.ExchangeDeclare(
 		config.Exchange,     // name
 		config.ExchangeType, // type
-		true,                // durable
+		config.Durable,      // durable
 		false,               // auto-deleted
 		false,               // internal
 		false,               // noWait
