@@ -162,13 +162,13 @@ func (c *Consumer) Connect() error {
 	}
 
 	if err = c.channel.ExchangeDeclare(
-		c.exchange,     // name of the exchange
-		c.exchangeType, // type
-		true,           // durable
-		false,          // delete when complete
-		false,          // internal
-		false,          // noWait
-		nil,            // arguments
+		c.exchange,       // name of the exchange
+		c.exchangeType,   // type
+		c.config.Durable, // durable
+		false,            // delete when complete
+		false,            // internal
+		false,            // noWait
+		nil,              // arguments
 	); err != nil {
 		return fmt.Errorf("exchange declare error: %s", err)
 	}
@@ -180,12 +180,12 @@ func (c *Consumer) Connect() error {
 // connection...
 func (c *Consumer) AnnounceQueue(queueName, bindingKey string) (<-chan amqp.Delivery, error) {
 	queue, err := c.channel.QueueDeclare(
-		queueName, // name of the queue
-		true,      // durable
-		false,     // delete when usused
-		false,     // exclusive
-		false,     // noWait
-		nil,       // arguments
+		queueName,        // name of the queue
+		c.config.Durable, // durable
+		false,            // delete when usused
+		false,            // exclusive
+		false,            // noWait
+		nil,              // arguments
 	)
 
 	if err != nil {
