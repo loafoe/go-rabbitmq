@@ -4,3 +4,13 @@ An slightly opiniated abstraction for using RabbitMQ services from various Cloud
 
 # usage
 
+TODO
+
+# author
+
+Andy Lo-A-Foe <andy.loafoe@aemian.com>
+
+# license
+
+Apache. Also see the NOTICE file.
+

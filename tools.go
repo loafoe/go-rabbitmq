@@ -1,3 +1,6 @@
+// Copyright 2018 Andy Lo-A-Foe. All rights reserved.
+// Use of this source code is governed by Apache-style
+// license that can be found in the LICENSE file.
 package rabbitmq
 
 import (
