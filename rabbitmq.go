@@ -34,6 +34,7 @@ type Config struct {
 	Exchange     string
 	ExchangeType string
 	Durable      bool
+	AutoDelete   bool
 	QueueName    string
 	RoutingKey   string
 	CTag         string
@@ -182,12 +183,12 @@ func (c *Consumer) Connect() error {
 // connection...
 func (c *Consumer) AnnounceQueue(queueName, bindingKey string) (<-chan amqp.Delivery, error) {
 	queue, err := c.channel.QueueDeclare(
-		queueName,        // name of the queue
-		c.config.Durable, // durable
-		false,            // delete when usused
-		false,            // exclusive
-		false,            // noWait
-		nil,              // arguments
+		queueName,           // name of the queue
+		c.config.Durable,    // durable
+		c.config.AutoDelete, // delete when usused
+		false,               // exclusive
+		false,               // noWait
+		nil,                 // arguments
 	)
 
 	if err != nil {
