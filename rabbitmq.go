@@ -20,6 +20,7 @@ type Consumer struct {
 	exchangeType string // topic, direct, etc...
 	bindingKey   string // routing key that we are using
 	queueName    string // queue name
+	config       Config // Configuration
 }
 
 type Producer struct {
@@ -102,6 +103,7 @@ func NewConsumer(config Config) (*Consumer, error) {
 		bindingKey:   config.RoutingKey,
 		queueName:    config.QueueName,
 		done:         make(chan error),
+		config:       config,
 	}
 	return c, err
 }
