@@ -77,7 +77,7 @@ func NewProducer(config Config) (*Producer, error) {
 	if err = p.channel.ExchangeDeclare(
 		config.Exchange,     // name
 		config.ExchangeType, // type
-		config.Durable,      // durable
+		true,                // durable
 		false,               // auto-deleted
 		false,               // internal
 		false,               // noWait
@@ -162,13 +162,13 @@ func (c *Consumer) Connect() error {
 	}
 
 	if err = c.channel.ExchangeDeclare(
-		c.exchange,       // name of the exchange
-		c.exchangeType,   // type
-		c.config.Durable, // durable
-		false,            // delete when complete
-		false,            // internal
-		false,            // noWait
-		nil,              // arguments
+		c.exchange,     // name of the exchange
+		c.exchangeType, // type
+		true,           // durable
+		false,          // delete when complete
+		false,          // internal
+		false,          // noWait
+		nil,            // arguments
 	); err != nil {
 		return fmt.Errorf("exchange declare error: %s", err)
 	}
