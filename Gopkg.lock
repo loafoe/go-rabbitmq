@@ -24,7 +24,7 @@
     "loader/fake",
     "loader/loghook"
   ]
-  revision = "6a958fd8ab8ab1946035e07ac1a2c1d5b829517d"
+  revision = "67d6b908fb818c241909ed7d1b983a70c7e014e1"
 
 [[projects]]
   name = "github.com/cloudfoundry-community/go-cfenv"
