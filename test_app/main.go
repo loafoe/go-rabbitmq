@@ -15,8 +15,6 @@ func worker(delivery <-chan amqp.Delivery, done <-chan bool) {
 		case d := <-delivery:
 			fmt.Printf("Something was delivered: \"%s\"\n", string(d.Body))
 			d.Ack(true)
-		case <-time.After(1 * time.Second):
-			fmt.Printf("Working..\n")
 		case <-done:
 			return
 		}
@@ -36,10 +34,9 @@ func main() {
 	})
 
 	if err != nil {
-		fmt.Printf("Error defining consumer")
+		fmt.Printf("Error defining consumer\n")
 		return
 	}
-	fmt.Printf("Starting consumer\n")
 	err = consumer.Start()
 	if err != nil {
 		fmt.Printf("Fatal: %v\n", err)
@@ -54,8 +51,7 @@ func main() {
 			ExchangeType: "topic",
 			Durable:      false,
 		})
-		fmt.Printf("Publishing..\n")
-		for i := 0; i < 10; i++ {
+		for i := 0; i < 20; i++ {
 			err = producer.Publish("app_exchange", "app_key", amqp.Publishing{
 				Headers:         amqp.Table{},
 				ContentType:     "application/octet-stream",
@@ -72,7 +68,5 @@ func main() {
 		c <- true // Exit
 	}(wait)
 
-	fmt.Printf("Waiting..\n")
 	<-wait
-	fmt.Printf("Done!\n")
 }
