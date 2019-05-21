@@ -6,10 +6,11 @@ package rabbitmq
 import (
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/cloudfoundry-community/gautocloud"
 	_ "github.com/cloudfoundry-community/gautocloud/connectors/amqp/client"
 	"github.com/streadway/amqp"
-	"time"
 )
 
 type Consumer struct {
@@ -252,20 +253,26 @@ func (c *Consumer) Handle(
 	var err error
 
 	for {
+		doneChans := make([]chan bool, threads)
 		for i := 0; i < threads; i++ {
-			go fn(d)
+			doneChans[i] = make(chan bool)
+			go fn(d, doneChans[i])
 		}
-
 		// Go into reconnect loop when
 		// c.done is passed non nil values
 		if <-c.done != nil {
+			// Terminate old workers
+			for i := 0; i < threads; i++ {
+				doneChans[i] <- true
+			}
 			d, err = c.reConnect(queue, routingKey)
 			if err != nil {
 				// Very likely chance of failing
 				// should not cause worker to terminate
 			}
+
 		}
 	}
 }
 
-type ConsumerHandlerFunc func(deliveries <-chan amqp.Delivery) error
+type ConsumerHandlerFunc func(deliveries <-chan amqp.Delivery, done <-chan bool)
