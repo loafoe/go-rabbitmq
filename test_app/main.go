@@ -55,16 +55,18 @@ func main() {
 			Durable:      false,
 		})
 		fmt.Printf("Publishing..\n")
-		err = producer.Publish("app_exchange", "app_key", amqp.Publishing{
-			Headers:         amqp.Table{},
-			ContentType:     "application/octet-stream",
-			ContentEncoding: "",
-			Body:            []byte("hello world"),
-			DeliveryMode:    amqp.Transient, // 1=non-persistent, 2=persistent
-			Priority:        0,              // 0-9
-		})
-		if err != nil {
-			fmt.Printf("Error publishing: %v\n", err)
+		for i := 0; i < 10; i++ {
+			err = producer.Publish("app_exchange", "app_key", amqp.Publishing{
+				Headers:         amqp.Table{},
+				ContentType:     "application/octet-stream",
+				ContentEncoding: "",
+				Body:            []byte(fmt.Sprintf("hello world %d", i)),
+				DeliveryMode:    amqp.Transient, // 1=non-persistent, 2=persistent
+				Priority:        0,              // 0-9
+			})
+			if err != nil {
+				fmt.Printf("Error publishing: %v\n", err)
+			}
 		}
 		time.Sleep(4 * time.Second)
 		c <- true // Exit
