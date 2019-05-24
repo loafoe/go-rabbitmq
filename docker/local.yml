@@ -1,0 +1,9 @@
+services:
+- name: rabbitmq
+  tags: [rabbitmq, amqp]
+  credentials:
+    uri: amqp://guest:guest@rabbitmq:5672/
+    host: rabbitmq
+    port: 5672
+    username: guest
+    password: guest

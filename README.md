@@ -4,7 +4,13 @@ An slightly opiniated abstraction for using RabbitMQ services from various Cloud
 
 # usage
 
-TODO
+## consumer
+
+## producer
+
+# integration test
+
+`docker-compose -f docker/docker-compose.test.yml up --build --abort-on-container-exit`
 
 # author
 
@@ -12,5 +18,5 @@ Andy Lo-A-Foe <andy.loafoe@aemian.com>
 
 # license
 
-Apache. Also see the NOTICE file.
+MIT
 

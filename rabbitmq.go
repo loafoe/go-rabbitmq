@@ -1,24 +1,32 @@
-// Copyright 2018 Andy Lo-A-Foe. All rights reserved.
-// Use of this source code is governed by Apache-style
-// license that can be found in the LICENSE file.
 package rabbitmq
 
 import (
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/cloudfoundry-community/gautocloud"
 	_ "github.com/cloudfoundry-community/gautocloud/connectors/amqp/client"
 	"github.com/streadway/amqp"
-	"time"
 )
 
-type Consumer struct {
+type Consumer interface {
+	Connect() error
+	Start() error
+	Handle(d <-chan amqp.Delivery, f ConsumerHandlerFunc, threads int, queue string, routingKey string)
+}
+
+type Producer interface {
+	Publish(exchange, routingKey string, msg amqp.Publishing) error
+	Close()
+}
+
+type AMQPConsumer struct {
 	conn         *amqp.Connection
 	channel      *amqp.Channel
 	handlerFunc  ConsumerHandlerFunc
 	done         chan error
 	consumerTag  string // Name that consumer identifies itself to the server with
-	uri          string // uri of the rabbitmq server
 	exchange     string // exchange that we will bind to
 	exchangeType string // topic, direct, etc...
 	bindingKey   string // routing key that we are using
@@ -26,7 +34,7 @@ type Consumer struct {
 	config       Config // Configuration
 }
 
-type Producer struct {
+type AMQPProducer struct {
 	conn    *amqp.Connection
 	channel *amqp.Channel
 	done    chan error
@@ -44,7 +52,7 @@ type Config struct {
 	HandlerFunc  ConsumerHandlerFunc
 }
 
-func (p *Producer) Publish(exchange, routingKey string, msg amqp.Publishing) error {
+func (p *AMQPProducer) Publish(exchange, routingKey string, msg amqp.Publishing) error {
 	if err := p.channel.Publish(
 		exchange,   // publish to an exchange
 		routingKey, // routing to 0 or more queues
@@ -57,14 +65,14 @@ func (p *Producer) Publish(exchange, routingKey string, msg amqp.Publishing) err
 	return nil
 }
 
-func (p *Producer) Close() {
+func (p *AMQPProducer) Close() {
 	p.conn.Close()
 }
 
-func NewProducer(config Config) (*Producer, error) {
+func NewProducer(config Config) (Producer, error) {
 	var err error
 
-	p := &Producer{
+	p := &AMQPProducer{
 		conn:    nil,
 		channel: nil,
 		done:    make(chan error),
@@ -94,10 +102,10 @@ func NewProducer(config Config) (*Producer, error) {
 	return p, nil
 }
 
-func NewConsumer(config Config) (*Consumer, error) {
+func NewConsumer(config Config) (Consumer, error) {
 	var err error
 
-	c := &Consumer{
+	c := &AMQPConsumer{
 		conn:         nil,
 		channel:      nil,
 		handlerFunc:  config.HandlerFunc,
@@ -112,12 +120,12 @@ func NewConsumer(config Config) (*Consumer, error) {
 	return c, err
 }
 
-func (c *Consumer) Start() error {
+func (c *AMQPConsumer) Start() error {
 	if err := c.Connect(); err != nil {
 		return err
 	}
 
-	deliveries, err := c.AnnounceQueue(c.queueName, c.bindingKey)
+	deliveries, err := c.announceQueue(c.queueName, c.bindingKey)
 	if err != nil {
 		return err
 	}
@@ -130,14 +138,14 @@ func (c *Consumer) Start() error {
 // will  likely destroy the error log while waiting for servers to come
 // back online. This requires two parameters which is just to satisfy
 // the AccounceQueue call and allows greater flexability
-func (c *Consumer) reConnect(queueName, bindingKey string) (<-chan amqp.Delivery, error) {
+func (c *AMQPConsumer) reConnect(queueName, bindingKey string) (<-chan amqp.Delivery, error) {
 	time.Sleep(30 * time.Second)
 
 	if err := c.Connect(); err != nil {
 		fmt.Printf("could not connect in reconnect call: %v\n", err.Error())
 	}
 
-	deliveries, err := c.AnnounceQueue(queueName, bindingKey)
+	deliveries, err := c.announceQueue(queueName, bindingKey)
 	if err != nil {
 		return deliveries, errors.New("Couldn't connect")
 	}
@@ -146,7 +154,7 @@ func (c *Consumer) reConnect(queueName, bindingKey string) (<-chan amqp.Delivery
 }
 
 // Connect to RabbitMQ server
-func (c *Consumer) Connect() error {
+func (c *AMQPConsumer) Connect() error {
 
 	var err error
 
@@ -182,9 +190,9 @@ func (c *Consumer) Connect() error {
 	return nil
 }
 
-// AnnounceQueue sets the queue that will be listened to for this
+// announceQueue sets the queue that will be listened to for this
 // connection...
-func (c *Consumer) AnnounceQueue(queueName, bindingKey string) (<-chan amqp.Delivery, error) {
+func (c *AMQPConsumer) announceQueue(queueName, bindingKey string) (<-chan amqp.Delivery, error) {
 	queue, err := c.channel.QueueDeclare(
 		queueName,           // name of the queue
 		c.config.Durable,    // durable
@@ -236,13 +244,13 @@ func (c *Consumer) AnnounceQueue(queueName, bindingKey string) (<-chan amqp.Deli
 }
 
 // Handle has all the logic to make sure your program keeps running
-// d should be a delievey channel as created when you call AnnounceQueue
+// d should be a delievey channel as created when you call announceQueue
 // fn should be a function that handles the processing of deliveries
 // this should be the last thing called in main as code under it will
 // become unreachable unless put int a goroutine. The q and rk params
 // are redundent but allow you to have multiple queue listeners in main
 // without them you would be tied into only using one queue per connection
-func (c *Consumer) Handle(
+func (c *AMQPConsumer) Handle(
 	d <-chan amqp.Delivery,
 	fn ConsumerHandlerFunc,
 	threads int,
@@ -252,20 +260,26 @@ func (c *Consumer) Handle(
 	var err error
 
 	for {
+		doneChans := make([]chan bool, threads)
 		for i := 0; i < threads; i++ {
-			go fn(d)
+			doneChans[i] = make(chan bool)
+			go fn(d, doneChans[i])
 		}
-
 		// Go into reconnect loop when
 		// c.done is passed non nil values
 		if <-c.done != nil {
+			// Terminate old workers
+			for i := 0; i < threads; i++ {
+				doneChans[i] <- true
+			}
 			d, err = c.reConnect(queue, routingKey)
 			if err != nil {
 				// Very likely chance of failing
 				// should not cause worker to terminate
 			}
+
 		}
 	}
 }
 
-type ConsumerHandlerFunc func(deliveries <-chan amqp.Delivery) error
+type ConsumerHandlerFunc func(deliveries <-chan amqp.Delivery, done <-chan bool)
