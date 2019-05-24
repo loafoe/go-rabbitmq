@@ -9,11 +9,11 @@ RUN go mod download
 
 # Build
 COPY . .
-RUN go build -o main test_app/main.go
+RUN go build test_app/main.go
 
-FROM golang:1.12.5-stretch
 WORKDIR /app/
-COPY --from=builder /build/main /app
-COPY --from=builder /build/docker/local.yml /app/local.yml
-COPY --from=builder /build/docker/wait-for-it.sh /app
-ENTRYPOINT ["/app/wait-for-it.sh", "rabbitmq:5672","--","/app/main"]
+COPY /docker/local.yml /app/local.yml
+COPY /docker/wait-for-it.sh /app
+
+WORKDIR /build
+ENTRYPOINT ["/app/wait-for-it.sh", "rabbitmq:5672","--","go", "test", "./..."]
