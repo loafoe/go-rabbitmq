@@ -69,7 +69,7 @@ func (p *AMQPProducer) Close() {
 	p.conn.Close()
 }
 
-func NewProducer(config Config) (Producer, error) {
+func NewProducer(config Config) (*AMQPProducer, error) {
 	var err error
 
 	p := &AMQPProducer{
@@ -102,7 +102,7 @@ func NewProducer(config Config) (Producer, error) {
 	return p, nil
 }
 
-func NewConsumer(config Config) (Consumer, error) {
+func NewConsumer(config Config) (*AMQPConsumer, error) {
 	var err error
 
 	c := &AMQPConsumer{
@@ -133,7 +133,7 @@ func (c *AMQPConsumer) Start() error {
 	return nil
 }
 
-// ReConnect is called in places where NotifyClose() channel is called
+// reConnect is called in places where NotifyClose() channel is called
 // wait 30 seconds before trying to reconnect. Any shorter amount of time
 // will  likely destroy the error log while waiting for servers to come
 // back online. This requires two parameters which is just to satisfy
