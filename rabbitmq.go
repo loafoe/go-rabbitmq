@@ -49,7 +49,14 @@ type Config struct {
 	QueueName    string
 	RoutingKey   string
 	CTag         string
+	Qos          *Qos
 	HandlerFunc  ConsumerHandlerFunc
+}
+
+type Qos struct {
+	PrefetchCount int
+	PrefetchSize  int
+	Global        bool
 }
 
 func (p *AMQPProducer) Publish(exchange, routingKey string, msg amqp.Publishing) error {
@@ -66,7 +73,7 @@ func (p *AMQPProducer) Publish(exchange, routingKey string, msg amqp.Publishing)
 }
 
 func (p *AMQPProducer) Close() {
-	p.conn.Close()
+	_ = p.conn.Close()
 }
 
 func NewProducer(config Config) (*AMQPProducer, error) {
@@ -84,7 +91,7 @@ func NewProducer(config Config) (*AMQPProducer, error) {
 	}
 	p.channel, err = p.conn.Channel()
 	if err != nil {
-		p.conn.Close()
+		_ = p.conn.Close()
 		return nil, fmt.Errorf("channel error: %s", err)
 	}
 	if err = p.channel.ExchangeDeclare(
@@ -96,7 +103,7 @@ func NewProducer(config Config) (*AMQPProducer, error) {
 		false,               // noWait
 		nil,                 // arguments
 	); err != nil {
-		p.conn.Close()
+		_ = p.conn.Close()
 		return nil, fmt.Errorf("exchange declare error: %s", err)
 	}
 	return p, nil
@@ -147,7 +154,7 @@ func (c *AMQPConsumer) reConnect(queueName, bindingKey string) (<-chan amqp.Deli
 
 	deliveries, err := c.announceQueue(queueName, bindingKey)
 	if err != nil {
-		return deliveries, errors.New("Couldn't connect")
+		return deliveries, fmt.Errorf("couldn't connect: %w", err)
 	}
 
 	return deliveries, nil
@@ -167,7 +174,7 @@ func (c *AMQPConsumer) Connect() error {
 		// Waits here for the channel to be closed
 		fmt.Printf("closing: %s\n", <-c.conn.NotifyClose(make(chan *amqp.Error)))
 		// Let Handle know it's not time to reconnect
-		c.done <- errors.New("Channel Closed")
+		c.done <- errors.New("channel Closed")
 	}()
 
 	c.channel, err = c.conn.Channel()
@@ -209,12 +216,14 @@ func (c *AMQPConsumer) announceQueue(queueName, bindingKey string) (<-chan amqp.
 	// Qos determines the amount of messages that the queue will pass to you before
 	// it waits for you to ack them. This will slow down queue consumption but
 	// give you more certainty that all messages are being processed. As load increases
-	// I would reccomend upping the about of Threads and Processors the go process
-	// uses before changing this although you will eventually need to reach some
-	// balance between threads, procs, and Qos.
-	err = c.channel.Qos(1, 0, false)
-	if err != nil {
-		return nil, fmt.Errorf("error setting qos: %s", err)
+	// I would recommend upping the number of Threads and Processors the go process
+	// uses before changing this, so you will eventually need to reach some
+	// balance between threads, processes, and Qos.
+	if c.config.Qos != nil {
+		err = c.channel.Qos(c.config.Qos.PrefetchCount, c.config.Qos.PrefetchSize, c.config.Qos.Global)
+		if err != nil {
+			return nil, fmt.Errorf("error setting qos: %s", err)
+		}
 	}
 
 	if err = c.channel.QueueBind(
