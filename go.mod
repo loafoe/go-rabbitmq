@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/cloudfoundry-community/gautocloud v1.1.5
 	github.com/cloudfoundry-community/go-cfenv v1.17.0
-	github.com/streadway/amqp v0.0.0-20190404075320-75d898a42a94
+	github.com/streadway/amqp v1.0.0
 )
 
 require (
